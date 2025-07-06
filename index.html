@@ -1,115 +1,138 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>awabota式 才能マネー診断</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>awabota 才能マネー診断</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
-      font-family: sans-serif;
-      padding: 2rem;
+      font-family: 'Arial', sans-serif;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    h1 {
+      text-align: center;
+      font-size: 24px;
     }
     .question {
-      margin-bottom: 1.5rem;
+      margin: 20px 0;
+      padding: 15px;
+      background: #fff;
+      border-radius: 8px;
     }
     .choice {
-      display: block;
-      margin: 0.3rem 0;
+      margin: 5px 0;
     }
-    #result {
-      margin-top: 3rem;
+    button {
+      display: block;
+      margin: 30px auto;
+      padding: 10px 20px;
+      font-size: 18px;
+    }
+    canvas {
+      max-width: 100%;
     }
   </style>
 </head>
 <body>
-  <h1>awabota式 才能マネー診断</h1>
-  <form id="quizForm">
-    <div id="questions"></div>
-    <button type="submit">診断する</button>
-  </form>
 
-  <div id="result">
-    <h2>診断結果</h2>
-    <canvas id="resultChart" width="400" height="300"></canvas>
-  </div>
+<h1>あなたの才能マネータイプ診断</h1>
 
-  <script>
-    const questions = [
-      "新しいプロジェクトを始めるとき、あなたが一番やりたいのは？",
-      "成果が出た！と実感できるのはどんなとき？",
-      "理想的な働き方は？",
-      "あなたが一番ワクワクする報酬は？",
-      "苦手だと思う作業は？",
-      "あなたにとって「成功」とは？",
-      "１日のうちもっともエネルギーが高まるのは？",
-      "時間と労力をかけるなら？",
-      "もう一度やりたい！と感じるのは？",
-      "これから重点的に伸ばしたいスキルは？"
-    ];
+<div id="questions"></div>
 
-    const choices = ["A", "B", "C", "D"];
-    const scoreTypes = ["Internet_Biz", "engineer", "IP", "Community", "Investment", "Support"];
-    let scoreMatrix = {}; // GASから取得
+<button onclick="calculateScore()">診断する</button>
 
-    // GASの公開URLに置き換えてください
-    fetch("https://script.google.com/macros/s/AKfycbwWLD-kYqTZBePV7VS6WbmqGGWKEn87fgOnvC5Kk5_dYYt03Cn0e9v4keLCd5vb96vg/exec")
-      .then(res => res.json())
-      .then(data => {
-        scoreMatrix = data;
-        console.log("✅ スコアデータ取得完了", scoreMatrix);
-      })
-      .catch(err => console.error("スコア取得失敗", err));
+<canvas id="resultChart" width="400" height="400"></canvas>
 
-    // 質問の表示
-    const qWrap = document.getElementById("questions");
-    questions.forEach((q, idx) => {
-      const div = document.createElement("div");
-      div.className = "question";
-      div.innerHTML = `<strong>Q${idx + 1}:</strong> ${q}<br>` +
-        choices.map(c => `<label class="choice"><input type="radio" name="Q${idx + 1}" value="${c}" required> ${c}</label>`).join("");
-      qWrap.appendChild(div);
-    });
+<script>
+const GAS_URL = "https://script.google.com/macros/s/AKfycbySXOTb3iRpMTNr3PFnpfJPJjWjSmOFBP8uF1aIj3oH5W7cA5iWNTjdMVRHvMozzGLw/exec";
 
-    // 診断処理
-    document.getElementById("quizForm").addEventListener("submit", function(e) {
-      e.preventDefault();
+let questionData = {};
+let matrixData = {};
+let score = {};
 
-      if (Object.keys(scoreMatrix).length === 0) {
-        alert("スコアデータの読み込みがまだです。もう一度お試しください。");
-        return;
-      }
+// 質問取得
+fetch(`${GAS_URL}?type=questions`)
+  .then(res => res.json())
+  .then(data => {
+    questionData = data;
+    displayQuestions();
+  });
 
-      let totalScore = {
-        Internet_Biz: 0, engineer: 0, IP: 0, Community: 0, Investment: 0, Support: 0
-      };
+// スコア取得
+fetch(GAS_URL)
+  .then(res => res.json())
+  .then(data => {
+    matrixData = data;
+  });
 
-      for (let i = 1; i <= 10; i++) {
-        const q = `Q${i}`;
-        const choice = document.querySelector(`input[name='${q}']:checked`).value;
-        const key = `${q}_${choice}`;
-        const score = scoreMatrix[key] || {};
-        for (const type of scoreTypes) {
-          totalScore[type] += score[type] || 0;
+function displayQuestions() {
+  const container = document.getElementById('questions');
+  for (const qid in questionData) {
+    const q = questionData[qid];
+    const div = document.createElement('div');
+    div.className = 'question';
+    div.innerHTML = `<p><strong>${qid}.</strong> ${q.question}</p>`;
+    for (const opt in q.choices) {
+      div.innerHTML += `
+        <div class="choice">
+          <label>
+            <input type="radio" name="${qid}" value="${opt}"> ${opt}: ${q.choices[opt]}
+          </label>
+        </div>`;
+    }
+    container.appendChild(div);
+  }
+}
+
+function calculateScore() {
+  score = {
+    Internet_Biz: 0,
+    engineer: 0,
+    IP: 0,
+    Community: 0,
+    Investment: 0,
+    Support: 0
+  };
+
+  for (const qid in questionData) {
+    const selected = document.querySelector(`input[name="${qid}"]:checked`);
+    if (selected) {
+      const key = `${qid}_${selected.value}`;
+      const scoreSet = matrixData[key];
+      if (scoreSet) {
+        for (const type in scoreSet) {
+          score[type] += Number(scoreSet[type]);
         }
       }
+    }
+  }
 
-      const ctx = document.getElementById('resultChart').getContext('2d');
-      new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: scoreTypes,
-          datasets: [{
-            label: 'スコア',
-            data: scoreTypes.map(t => totalScore[t])
-          }]
-        },
-        options: {
-          responsive: true,
-          scales: { y: { beginAtZero: true } }
-        }
-      });
-    });
-  </script>
+  renderChart();
+}
+
+function renderChart() {
+  const ctx = document.getElementById('resultChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: Object.keys(score),
+      datasets: [{
+        label: 'スコア',
+        data: Object.values(score),
+        backgroundColor: 'rgba(54, 162, 235, 0.7)'
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+}
+</script>
+
 </body>
 </html>
